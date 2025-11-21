@@ -123,14 +123,6 @@ def cross_validate_model(train, test, model, param_grid, batch_size):
                         print(f"estimators : {estimators}; max_depth: {max_depth}; learning_rate: {learning_rate} -> we acheived an acc of: {acc}")
 
 
-
-
-
-
-
-
-
-
     match model:
         case "logit" : 
             results.sort(key=lambda t: t[0])
