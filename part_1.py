@@ -7,7 +7,7 @@ import numpy as np
 import sklearn.linear_model as ln
 import sklearn.ensemble as es
 from xgboost import XGBClassifier
-
+import xgboost
 
 
 ##Notes on MNISTmini.mat
@@ -43,6 +43,111 @@ def MNIST_get_feats_of_label(data, data_set, label : int):
         end = len(data[data_set[1]])
 
     return (data[data_set[0]][start : end], data[data_set[1]][start : end])
+
+# #Cross Validation
+# #1. split data set into multtiple batches. since we have roughly 10k items lets do 10 batches of 1k
+
+# #since feature and label are two seperate arrays, and we want thier relative position to match, we need to use a index table and do any shuffling or batching like that. 
+# 
+
+def cross_validate_model(train, test, model, param_grid, batch_size):
+    idx_array = np.arange(len(train['feat']))
+    results = []
+
+    
+    match model:
+        case "logit":
+            for max_iter in param_grid["max_iter"]:
+
+
+                np.random.shuffle(idx_array)
+                batch_idx = idx_array[: batch_size]
+
+                batch_feat = train["feat"][batch_idx]
+                batch_gnd = train["gnd"][batch_idx]
+
+            
+            
+                m = ln.LogisticRegression(max_iter=max_iter)
+
+
+                m.fit(batch_feat, batch_gnd)
+
+                y_rf_pred = m.predict(test["feat"])
+
+                acc = np.mean(y_rf_pred == test["gnd"])
+                results.append((acc, {"max_iter" : max_iter}))
+                print(f"with max iteration set to: {max_iter}, we acheived an acc of: {acc}")
+        case "rnd_forest":
+            for estimators in param_grid["n_estimators"]:
+                np.random.shuffle(idx_array)
+                batch_idx = idx_array[: batch_size]
+
+                batch_feat = train["feat"][batch_idx]
+                batch_gnd = train["gnd"][batch_idx]
+
+                m = es.RandomForestClassifier(n_estimators=estimators)
+
+                m.fit(batch_feat, batch_gnd)
+
+                y_rf_pred = m.predict(test["feat"])
+
+                acc = np.mean(y_rf_pred == test["gnd"])
+                results.append((acc, {"estimators" : estimators}))
+                print(f"with estimators set to: {estimators}, we acheived an acc of: {acc}")
+
+        case "xgboost":
+            for estimators in param_grid["n_estimators"]:
+                for max_depth in param_grid["max_depth"]:
+                    for learning_rate in param_grid["learning_rate"]:
+                        np.random.shuffle(idx_array)
+                        batch_idx = idx_array[: batch_size]
+
+                        batch_feat = train["feat"][batch_idx]
+                        batch_gnd = train["gnd"][batch_idx]
+
+                        m = XGBClassifier(
+                            n_estimators=estimators,
+                            max_depth=max_depth,
+                            learning_rate=learning_rate,
+                            objective="multi:softmax",
+                            num_class=param_grid["num_class"]
+                        )
+
+                        m.fit(batch_feat, batch_gnd)
+
+                        y_rf_pred = m.predict(test["feat"])
+
+                        acc = np.mean(y_rf_pred == test["gnd"])
+                        results.append((acc, {"estimators" : estimators, "max_depth" : max_depth, "learning_rate" : learning_rate}))
+                        print(f"estimators : {estimators}; max_depth: {max_depth}; learning_rate: {learning_rate} -> we acheived an acc of: {acc}")
+
+
+
+
+
+
+
+
+
+
+    match model:
+        case "logit" : 
+            results.sort(key=lambda t: t[0])
+            (acc, params) = results.pop()
+            print(f"{params["max_iter"]} iterations was found to be the best with an accuracy of {acc}")
+            return params
+        case "rnd_forest":
+            results.sort(key=lambda t: t[0])
+            (acc, params) = results.pop()
+            print(f"{params["estimators"]} estimators was found to be the best with an accuracy of {acc}")
+            return params
+        case 'xgboost':
+            results.sort(key=lambda t: t[0])
+            (acc, params) = results.pop()
+            print(f'[BEST] estimators : {params["estimators"]}; max_depth: {params["max_depth"]}; learning_rate: {params["learning_rate"]} -> acc of: {acc}')
+            return params
+
 
 
 Mm_train_feats = "train_fea1"
@@ -87,44 +192,10 @@ Mm_test = (Mm_test_feats, Mm_test_gnd)
 
 # #Test Random Forest Model.
 
-# #Cross Validation
-# #1. split data set into multtiple batches. since we have roughly 10k items lets do 10 batches of 1k
-
-# #since feature and label are two seperate arrays, and we want thier relative position to match, we need to use a index table and do any shuffling or batching like that. 
-# idx_array = np.arange(len(feat))
 
 
-# batches = 20
-# est_per_batch = 2
-# batch_size = 1000
-# results = []
-# for i in range(batches):
-#     batch_est = (i+1)*est_per_batch
 
 
-#     np.random.shuffle(idx_array)
-#     batch_idx = idx_array[: batch_size]
-
-#     batch_feat = feat[batch_idx]
-#     batch_gnd = gnd[batch_idx]
-
-    
-    
-#     model_rf = es.RandomForestClassifier(n_estimators= batch_est)
-
-
-#     model_rf.fit(batch_feat, batch_gnd)
-
-#     y_rf_pred = model_rf.predict(feat_test)
-#     acc = np.mean(y_rf_pred == gnd_test)
-#     results.append((acc, batch_est))
-#     print(f"with {batch_est}, we acheived an acc of: {acc}")
-
-# #determine best estimator size:
-
-# results.sort(key=lambda t: t[0])
-# (tp_rf, estimators) = results.pop()
-# print(f"{estimators} estimators was found to be the best with an accuracy of {tp_rf}")
 
 # #Compute results / score
 
@@ -139,22 +210,30 @@ Mm_test = (Mm_test_feats, Mm_test_gnd)
 
 
 
-## Part 2 ____________________________________________
+## Part 2 __________________________________________
+
 
 data = loadmat("./datasets/MNIST.mat")
 
 feat = np.array(data["train_fea"])
-gnd = np.array(data["train_gnd"]) - 1
+gnd = np.array(data["train_gnd"]).ravel().astype(int) - 1
 
 feat_test = np.array(data["test_fea"])
-gnd_test = np.array(data["test_gnd"])
+gnd_test = np.array(data["test_gnd"]).ravel().astype(int) - 1
 
-model = XGBClassifier(n_estimators=10, max_depth=2)
 
-model.fit(feat, gnd)
+cross_validate_model(
+        {"feat" : feat, "gnd" : gnd}, 
+        {"feat" : feat_test, "gnd" : gnd_test}, 
+        "xgboost",
+        {
+            "n_estimators" : [10, 30, 40, 50, 100], 
+            "max_depth" : [1, 2, 5, 6],
+            "learning_rate" : [0.1, 0.3, 0.6, 0.9, 1.0],
+            "num_class" : 10
+        },
+        500
+    )
 
-y_pred = model.predict(feat_test)
-tp = np.mean(y_pred == gnd_test)
-print(tp)
 
 
