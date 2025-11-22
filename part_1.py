@@ -50,77 +50,127 @@ def MNIST_get_feats_of_label(data, data_set, label : int):
 # #since feature and label are two seperate arrays, and we want thier relative position to match, we need to use a index table and do any shuffling or batching like that. 
 # 
 
-def cross_validate_model(train, test, model, param_grid, batch_size):
+def cross_validate_model(train, model, param_grid, batch_size):
     idx_array = np.arange(len(train['feat']))
     results = []
 
     
     match model:
         case "logit":
+
+            np.random.shuffle(idx_array)
             for max_iter in param_grid["max_iter"]:
 
+                n_batches = np.array_split(idx_array, batch_size) 
 
-                np.random.shuffle(idx_array)
-                batch_idx = idx_array[: batch_size]
+                batch_scores = []
 
-                batch_feat = train["feat"][batch_idx]
-                batch_gnd = train["gnd"][batch_idx]
+                        
+                for i in range(batch_size):
+                            
+                            
+                    val_idx = n_batches[i]
+                            
 
-            
-            
-                m = ln.LogisticRegression(max_iter=max_iter)
+                    train_idx = np.concatenate([n_batches[j] for j in range(batch_size) if j != i])
+                            
 
+                    train_feat = train["feat"][train_idx]
+                    train_gnd = train["gnd"][train_idx]
+                            
+                    val_feat = train["feat"][val_idx]
+                    val_gnd = train["gnd"][val_idx]
 
-                m.fit(batch_feat, batch_gnd)
+                    m = ln.LogisticRegression(max_iter=max_iter)
 
-                y_rf_pred = m.predict(test["feat"])
+                    m.fit(train_feat, train_gnd)
+                    y_pred = m.predict(val_feat)
 
-                acc = np.mean(y_rf_pred == test["gnd"])
+                    acc = np.mean(y_pred == val_gnd)
+                    batch_scores.append(acc)
+
+                acc = np.mean(batch_scores)
                 results.append((acc, {"max_iter" : max_iter}))
                 print(f"with max iteration set to: {max_iter}, we acheived an acc of: {acc}")
         case "rnd_forest":
+            np.random.shuffle(idx_array)
             for estimators in param_grid["n_estimators"]:
-                np.random.shuffle(idx_array)
-                batch_idx = idx_array[: batch_size]
+                
+                n_batches = np.array_split(idx_array, batch_size) 
 
-                batch_feat = train["feat"][batch_idx]
-                batch_gnd = train["gnd"][batch_idx]
+                batch_scores = []
 
-                m = es.RandomForestClassifier(n_estimators=estimators)
+                        
+                for i in range(batch_size):
+                            
+                            
+                    val_idx = n_batches[i]
+                            
 
-                m.fit(batch_feat, batch_gnd)
+                    train_idx = np.concatenate([n_batches[j] for j in range(batch_size) if j != i])
+                            
 
-                y_rf_pred = m.predict(test["feat"])
+                    train_feat = train["feat"][train_idx]
+                    train_gnd = train["gnd"][train_idx]
+                            
+                    val_feat = train["feat"][val_idx]
+                    val_gnd = train["gnd"][val_idx]
 
-                acc = np.mean(y_rf_pred == test["gnd"])
-                results.append((acc, {"estimators" : estimators}))
+                    m = es.RandomForestClassifier(n_estimators=estimators)
+
+                    m.fit(train_feat, train_gnd)
+                    y_pred = m.predict(val_feat)
+
+                    acc = np.mean(y_pred == val_gnd)
+                    batch_scores.append(acc)
+                        
+                avg_acc = np.mean(batch_scores)
+                results.append((avg_acc, {"estimators" : estimators}))
                 print(f"with estimators set to: {estimators}, we acheived an acc of: {acc}")
 
         case "xgboost":
+            np.random.shuffle(idx_array)
             for estimators in param_grid["n_estimators"]:
                 for max_depth in param_grid["max_depth"]:
                     for learning_rate in param_grid["learning_rate"]:
-                        np.random.shuffle(idx_array)
-                        batch_idx = idx_array[: batch_size]
+                        n_batches = np.array_split(idx_array, batch_size) 
 
-                        batch_feat = train["feat"][batch_idx]
-                        batch_gnd = train["gnd"][batch_idx]
+                        batch_scores = []
 
-                        m = XGBClassifier(
-                            n_estimators=estimators,
-                            max_depth=max_depth,
-                            learning_rate=learning_rate,
-                            objective="multi:softmax",
-                            num_class=param_grid["num_class"]
-                        )
+                        
+                        for i in range(batch_size):
+                            
+                            
+                            val_idx = n_batches[i]
+                            
 
-                        m.fit(batch_feat, batch_gnd)
+                            train_idx = np.concatenate([n_batches[j] for j in range(batch_size) if j != i])
+                            
 
-                        y_rf_pred = m.predict(test["feat"])
+                            train_feat = train["feat"][train_idx]
+                            train_gnd = train["gnd"][train_idx]
+                            
+                            val_feat = train["feat"][val_idx]
+                            val_gnd = train["gnd"][val_idx]
 
-                        acc = np.mean(y_rf_pred == test["gnd"])
-                        results.append((acc, {"estimators" : estimators, "max_depth" : max_depth, "learning_rate" : learning_rate}))
-                        print(f"estimators : {estimators}; max_depth: {max_depth}; learning_rate: {learning_rate} -> we acheived an acc of: {acc}")
+
+                            m = XGBClassifier(
+                                n_estimators=estimators,
+                                max_depth=max_depth,
+                                learning_rate=learning_rate,
+                                objective="multi:softmax",
+                                num_class=param_grid["num_class"]
+                            )
+
+                            m.fit(train_feat, train_gnd)
+                            y_pred = m.predict(val_feat)
+
+                            acc = np.mean(y_pred == val_gnd)
+                            batch_scores.append(acc)
+                        
+                        acc = np.mean(batch_scores)
+                        results.append((acc, {"estimators": estimators, "max_depth" : max_depth, "learning_rate" : learning_rate}))
+                        print(f"Params: estimators: {estimators}, max_depth: {max_depth}, learning rate: {learning_rate} -> Average Accuracy: {acc}")
 
 
     match model:
@@ -219,12 +269,12 @@ cross_validate_model(
         {"feat" : feat_test, "gnd" : gnd_test}, 
         "xgboost",
         {
-            "n_estimators" : [10, 30, 40, 50, 100], 
-            "max_depth" : [1, 2, 5, 6],
-            "learning_rate" : [0.1, 0.3, 0.6, 0.9, 1.0],
+            "n_estimators" : [10, 30, 40, 50], 
+            "max_depth" : [1, 2, 3],
+            "learning_rate" : [0.1, 0.6, 1.0],
             "num_class" : 10
         },
-        500
+        5
     )
 
 
