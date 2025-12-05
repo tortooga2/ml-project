@@ -138,4 +138,16 @@ best_params_xgb = cross_validate_model(
 )
 
 
+## Part 3 __________________________________________
 
+#Load dataset
+
+
+
+# Explainable Boosting Classifier
+
+
+
+
+
+# EBM Classifier
