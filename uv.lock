@@ -863,6 +863,7 @@ source = { virtual = "." }
 dependencies = [
     { name = "interpret" },
     { name = "matplotlib" },
+    { name = "pandas" },
     { name = "scikit-learn" },
     { name = "scipy" },
     { name = "xgboost" },
@@ -872,6 +873,7 @@ dependencies = [
 requires-dist = [
     { name = "interpret", specifier = ">=0.7.3" },
     { name = "matplotlib", specifier = ">=3.10.7" },
+    { name = "pandas", specifier = ">=2.3.3" },
     { name = "scikit-learn", specifier = ">=1.7.2" },
     { name = "scipy", specifier = ">=1.16.3" },
     { name = "xgboost", specifier = ">=3.1.2" },
