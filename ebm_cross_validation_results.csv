@@ -1,0 +1,2 @@
+mean_fit_time,std_fit_time,mean_score_time,std_score_time,param_interactions,params,split0_test_score,split1_test_score,split2_test_score,split3_test_score,split4_test_score,mean_test_score,std_test_score,rank_test_score
+33.33526849746704,15.29211581988016,0.0074384212493896484,8.778752092528867e-05,5,{'interactions': 5},0.18229586346823712,0.30820989880508354,0.2170689460042362,0.2943773611687268,0.24452989064803055,0.2492963920188628,0.04701806822775281,1
